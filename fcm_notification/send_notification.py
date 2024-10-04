@@ -1,8 +1,9 @@
 import frappe
-import requests
 import json
 from frappe import enqueue
 import re
+import firebase_admin
+from firebase_admin import credentials, messaging
 
 
 def user_id(doc):
@@ -14,7 +15,7 @@ def user_id(doc):
 
 
 @frappe.whitelist()
-def send_notification(doc, event):
+def send_notification(doc, event=None):
     device_ids = user_id(doc)
     for device_id in device_ids:
         enqueue(
@@ -32,34 +33,37 @@ def convert_message(message):
     # cleantitle = re.sub(CLEANR, "",title)
     return cleanmessage
 
+def firebase_app():
+    server_key = frappe.db.get_single_value("FCM Notification Settings", "server_key")
+    cred = credentials.Certificate(json.loads(server_key))
+    app = firebase_admin.initialize_app(cred)
 
 def process_notification(device_id, notification):
+    firebase_app()
+    fcm_token = get_user_fcm_token_by_email(notification.for_user)
     message = notification.email_content
-    title = notification.subject
-    if message:
-        message = convert_message(message)
-    if title:
-        title = convert_message(title)
-
-    url = "https://fcm.googleapis.com/fcm/send"
-    body = {
-        "to": device_id.device_id,
-        "notification": {"body": message, "title": title},
-        "data": {
-            "doctype": notification.document_type,
-            "docname": notification.document_name,
-        },
+    data = {
+        "document_name": notification.document_name,
+        "document_type": notification.document_type,
+        "for_user": notification.for_user,
+        "from_user": notification.owner
     }
+    if notification.owner != notification.for_user:
+        name = get_doc_owner_name(notification.owner)
+        message = f"{name} has {message[9:]}"
+    if fcm_token:
+        send_push_notification(fcm_token, notification.subject, message, data)
 
-    server_key = frappe.db.get_single_value("FCM Notification Settings", "server_key")
-    auth = f"Bearer {server_key}"
-    req = requests.post(
-        url=url,
-        data=json.dumps(body),
-        headers={
-            "Authorization": auth,
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-        },
-    )
-    frappe.log_error(req.text)
+
+def get_user_fcm_token_by_email(email):
+    fcm_token = frappe.db.get_value("Employee", {"user_id": email}, ["custom_fcm_token"])
+    return fcm_token
+
+def get_doc_owner_name(email):
+    name = frappe.db.get_value("Employee", {"user_id": email}, ["employee_name"])
+    return name
+
+def send_push_notification(fcm_token, title, body, data=None):
+    notification = messaging.Notification(title=title, body=body)
+    message = messaging.Message(notification=notification, token=fcm_token, data=data)
+    messaging.send(message)
