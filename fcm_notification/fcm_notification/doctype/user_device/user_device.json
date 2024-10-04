@@ -9,7 +9,10 @@
  "field_order": [
   "user",
   "device_name",
-  "device_id"
+  "device_id",
+  "column_break_ypfm",
+  "device_manufacturer",
+  "fcm_token"
  ],
  "fields": [
   {
@@ -31,14 +34,29 @@
    "length": 250,
    "reqd": 1,
    "unique": 1
+  },
+  {
+   "fieldname": "column_break_ypfm",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "device_manufacturer",
+   "fieldtype": "Data",
+   "label": "Device Manufacturer"
+  },
+  {
+   "fieldname": "fcm_token",
+   "fieldtype": "Small Text",
+   "label": "FCM Token"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2022-02-06 15:46:19.185765",
+ "modified": "2024-10-04 10:54:30.078274",
  "modified_by": "Administrator",
  "module": "Fcm Notification",
  "name": "User Device",
+ "naming_rule": "Expression",
  "owner": "Administrator",
  "permissions": [
   {
@@ -55,5 +73,6 @@
   }
  ],
  "sort_field": "modified",
- "sort_order": "DESC"
+ "sort_order": "DESC",
+ "states": []
 }
