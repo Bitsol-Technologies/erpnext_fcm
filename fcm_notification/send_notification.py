@@ -28,6 +28,8 @@ def create_or_update_user_device(device_id, device_name, device_manufacturer, fc
         user_device.fcm_token = fcm_token
         user_device.is_active = 1
         user_device.save()
+        frappe.db.commit()
+        return "User device has been updated"
     else:
         new_user_device = frappe.get_doc({
                 "doctype": "User Device",
@@ -39,12 +41,13 @@ def create_or_update_user_device(device_id, device_name, device_manufacturer, fc
                 "is_active": 1
             })
         new_user_device.insert()
-    
-    frappe.db.commit()
+        frappe.db.commit()
+        return "New user device has been registered"
 
 
 @frappe.whitelist()
-def mark_device_as_inactive(email):
+def mark_device_as_inactive():
+    email = frappe.session.user
     user_device_id = frappe.get_all(
         "User Device", filters={"user": email}, fields=["device_id"]
     )
