@@ -9,9 +9,51 @@ from firebase_admin import credentials, messaging
 def user_id(doc):
     user_email = doc.for_user
     user_device_id = frappe.get_all(
-        "User Device", filters={"user": user_email}, fields=["device_id"]
+        "User Device", filters={"user": user_email, "is_active": 1}, fields=["device_id"]
     )
     return user_device_id
+
+
+@frappe.whitelist()
+def create_or_update_user_device(device_id, device_name, device_manufacturer, fcm_token):
+    user = frappe.session.user
+    user_device_id = frappe.get_all(
+        "User Device", filters={"user": user}, fields=["device_id"]
+    )
+    if user_device_id:
+        user_device = frappe.get_doc("User Device", {"user": user})
+        user_device.device_name = device_name
+        user_device.device_manufacturer = device_manufacturer
+        user_device.device_id = device_id
+        user_device.fcm_token = fcm_token
+        user_device.is_active = 1
+        user_device.save()
+    else:
+        new_user_device = frappe.get_doc({
+                "doctype": "User Device",
+                "user": user,
+                "device_name": device_name, 
+                "device_id": device_id,
+                "device_manufacturer": device_manufacturer,
+                "fcm_token": fcm_token,
+                "is_active": 1
+            })
+        new_user_device.insert()
+    
+    frappe.db.commit()
+
+
+@frappe.whitelist()
+def mark_device_as_inactive(email):
+    user_device_id = frappe.get_all(
+        "User Device", filters={"user": email}, fields=["device_id"]
+    )
+    if user_device_id:
+        user_device = frappe.get_doc("User Device", {"user": email})
+        user_device.is_active = 0
+        user_device.save()
+        frappe.db.commit()
+        return "Device has been marked as inactive successfully."
 
 
 @frappe.whitelist()
@@ -36,11 +78,11 @@ def convert_message(message):
 def firebase_app():
     server_key = frappe.db.get_single_value("FCM Notification Settings", "server_key")
     cred = credentials.Certificate(json.loads(server_key))
-    app = firebase_admin.initialize_app(cred)
+    firebase_admin.initialize_app(cred)
 
 def process_notification(device_id, notification):
     firebase_app()
-    fcm_token = get_user_fcm_token_by_email(notification.for_user)
+    fcm_token_list = get_user_fcm_token_list(notification.for_user)
     message = notification.email_content
     data = {
         "document_name": notification.document_name,
@@ -51,19 +93,18 @@ def process_notification(device_id, notification):
     if notification.owner != notification.for_user:
         name = get_doc_owner_name(notification.owner)
         message = f"{name} has {message[9:]}"
-    if fcm_token:
-        send_push_notification(fcm_token, notification.subject, message, data)
+    if fcm_token_list:
+        send_push_notification(fcm_token_list, notification.subject, message, data)
 
 
-def get_user_fcm_token_by_email(email):
-    fcm_token = frappe.db.get_value("Employee", {"user_id": email}, ["custom_fcm_token"])
-    return fcm_token
+def get_user_fcm_token_list(user):
+    return frappe.db.get_list("User Device", {"user": user}, ["fcm_token"])
 
 def get_doc_owner_name(email):
-    name = frappe.db.get_value("Employee", {"user_id": email}, ["employee_name"])
-    return name
+    return frappe.db.get_value("Employee", {"user_id": email}, ["employee_name"])
 
-def send_push_notification(fcm_token, title, body, data=None):
-    notification = messaging.Notification(title=title, body=body)
-    message = messaging.Message(notification=notification, token=fcm_token, data=data)
-    messaging.send(message)
+def send_push_notification(fcm_token_list, title, body, data=None):
+    for fcm_token in fcm_token_list:
+        notification = messaging.Notification(title=title, body=body)
+        message = messaging.Message(notification=notification, token=fcm_token["fcm_token"], data=data)
+        messaging.send(message)

@@ -10,6 +10,7 @@
   "user",
   "device_name",
   "device_id",
+  "is_active",
   "column_break_ypfm",
   "device_manufacturer",
   "fcm_token"
@@ -48,11 +49,17 @@
    "fieldname": "fcm_token",
    "fieldtype": "Small Text",
    "label": "FCM Token"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "isActive"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-10-04 10:54:30.078274",
+ "modified": "2024-10-07 12:18:05.840549",
  "modified_by": "Administrator",
  "module": "Fcm Notification",
  "name": "User Device",
