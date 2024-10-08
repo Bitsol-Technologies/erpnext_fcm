@@ -138,9 +138,11 @@ doc_events = {
 # Overriding Methods
 # ------------------------------
 #
-# override_whitelisted_methods = {
-# 	"frappe.desk.doctype.event.event.get_events": "fcm_notification.event.get_events"
-# }
+override_whitelisted_methods = {
+	# "frappe.desk.doctype.event.event.get_events": "fcm_notification.event.get_events",
+    "fcm_notification.send_notification.mark_device_as_inactive": "fcm_notification.send_notification.mark_device_as_inactive",
+    "fcm_notification.send_notification.create_or_update_user_device": "fcm_notification.send_notification.create_or_update_user_device"
+}
 #
 # each overriding function accepts a `data` argument;
 # generated from the base implementation of the doctype dashboard,

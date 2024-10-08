@@ -18,14 +18,14 @@
   {
    "fieldname": "server_key",
    "fieldtype": "Data",
-   "label": "Server Key",
+   "label": "Firebase JSON Key",
    "length": 250
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2022-02-06 15:25:43.703960",
+ "modified": "2024-10-07 17:21:19.991880",
  "modified_by": "Administrator",
  "module": "Fcm Notification",
  "name": "FCM Notification Settings",
@@ -43,5 +43,6 @@
   }
  ],
  "sort_field": "modified",
- "sort_order": "DESC"
+ "sort_order": "DESC",
+ "states": []
 }
