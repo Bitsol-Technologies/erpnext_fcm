@@ -103,6 +103,7 @@ def process_notification(device_id, notification):
     message = notification.email_content
     message = convert_message(message)
     subject = convert_message(notification.subject)
+
     data = {
         "document_name": notification.document_name,
         "document_type": notification.document_type,
