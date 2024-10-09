@@ -31,14 +31,11 @@ def send_push_to_user(email, title, message, data=None):
 @frappe.whitelist()
 def create_or_update_user_device(device_id, device_name, device_manufacturer, fcm_token):
     user = frappe.session.user
-    user_device_id = frappe.get_all(
-        "User Device", filters={"user": user}, fields=["device_id"]
-    )
-    if user_device_id:
-        user_device = frappe.get_doc("User Device", {"user": user})
+    user_device = frappe.get_doc("User Device", {"device_id": device_id})
+    if user_device:
+        user_device.user = user
         user_device.device_name = device_name
         user_device.device_manufacturer = device_manufacturer
-        user_device.device_id = device_id
         user_device.fcm_token = fcm_token
         user_device.is_active = 1
         user_device.save()
