@@ -14,6 +14,20 @@ def user_id(doc):
     return user_device_id
 
 
+def send_push_to_user(email, title, message, data=None):
+    firebase_app()
+    fcm_tokens = frappe.get_all(
+        "User Device", filters={"user": email, "is_active": 1}, fields=["fcm_token"]
+    )
+    fcm_tokens = [device["fcm_token"] for device in fcm_tokens]
+    if not fcm_tokens:
+        return "No devices found or active"
+
+    notification = messaging.Notification(title=title, body=message)
+    message = messaging.MulticastMessage(notification=notification, tokens=fcm_tokens)
+    response = messaging.send_multicast(message)
+       
+
 @frappe.whitelist()
 def create_or_update_user_device(device_id, device_name, device_manufacturer, fcm_token):
     user = frappe.session.user
@@ -80,10 +94,14 @@ def firebase_app():
     cred = credentials.Certificate(json.loads(server_key))
     firebase_admin.initialize_app(cred)
 
+
 def process_notification(device_id, notification):
     firebase_app()
     fcm_token_list = get_user_fcm_token_list(notification.for_user)
     message = notification.email_content
+    message = convert_message(message)
+    subject = convert_message(notification.subject)
+
     data = {
         "document_name": notification.document_name,
         "document_type": notification.document_type,
@@ -94,7 +112,7 @@ def process_notification(device_id, notification):
         name = get_doc_owner_name(notification.owner)
         message = f"{name} has {message[9:]}"
     if fcm_token_list:
-        send_push_notification(fcm_token_list, notification.subject, message, data)
+        send_push_notification(fcm_token_list, subject, message, data)
 
 
 def get_user_fcm_token_list(user):
