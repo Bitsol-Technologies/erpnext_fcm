@@ -97,6 +97,7 @@ def firebase_app():
     cred = credentials.Certificate(json.loads(server_key))
     firebase_admin.initialize_app(cred)
 
+
 def process_notification(device_id, notification):
     firebase_app()
     fcm_token_list = get_user_fcm_token_list(notification.for_user)
@@ -114,11 +115,7 @@ def process_notification(device_id, notification):
         name = get_doc_owner_name(notification.owner)
         message = f"{name} has {message[9:]}"
     if fcm_token_list:
-<<<<<<< HEAD
         send_push_notification(fcm_token_list, subject, message, data)
-=======
-        send_push_notification(fcm_token_list, notification.subject, message, data)
->>>>>>> upstream/main
 
 
 def get_user_fcm_token_list(user):
