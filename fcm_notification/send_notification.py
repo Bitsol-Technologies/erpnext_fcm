@@ -14,6 +14,20 @@ def user_id(doc):
     return user_device_id
 
 
+def send_push_to_user(email, title, message, data=None):
+    firebase_app()
+    fcm_tokens = frappe.get_all(
+        "User Device", filters={"user": email, "is_active": 1}, fields=["fcm_token"]
+    )
+    fcm_tokens = [device["fcm_token"] for device in fcm_tokens]
+    if not fcm_tokens:
+        return "No devices found or active"
+
+    notification = messaging.Notification(title=title, body=message)
+    message = messaging.MulticastMessage(notification=notification, tokens=fcm_tokens)
+    response = messaging.send_multicast(message)
+       
+
 @frappe.whitelist()
 def create_or_update_user_device(device_id, device_name, device_manufacturer, fcm_token):
     user = frappe.session.user
