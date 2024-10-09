@@ -101,6 +101,9 @@ def process_notification(device_id, notification):
     firebase_app()
     fcm_token_list = get_user_fcm_token_list(notification.for_user)
     message = notification.email_content
+    message = convert_message(message)
+    subject = convert_message(notification.subject)
+    print("message:", message)
     data = {
         "document_name": notification.document_name,
         "document_type": notification.document_type,
@@ -111,7 +114,7 @@ def process_notification(device_id, notification):
         name = get_doc_owner_name(notification.owner)
         message = f"{name} has {message[9:]}"
     if fcm_token_list:
-        send_push_notification(fcm_token_list, notification.subject, message, data)
+        send_push_notification(fcm_token_list, subject, message, data)
 
 
 def get_user_fcm_token_list(user):
