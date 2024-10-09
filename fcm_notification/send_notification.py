@@ -114,7 +114,11 @@ def process_notification(device_id, notification):
         name = get_doc_owner_name(notification.owner)
         message = f"{name} has {message[9:]}"
     if fcm_token_list:
+<<<<<<< HEAD
         send_push_notification(fcm_token_list, subject, message, data)
+=======
+        send_push_notification(fcm_token_list, notification.subject, message, data)
+>>>>>>> upstream/main
 
 
 def get_user_fcm_token_list(user):
