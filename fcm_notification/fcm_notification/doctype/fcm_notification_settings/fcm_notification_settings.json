@@ -17,15 +17,14 @@
   },
   {
    "fieldname": "server_key",
-   "fieldtype": "Data",
-   "label": "Firebase JSON Key",
-   "length": 250
+   "fieldtype": "JSON",
+   "label": "Firebase Credentials"
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2024-10-07 17:21:19.991880",
+ "modified": "2024-10-14 18:04:41.268450",
  "modified_by": "Administrator",
  "module": "Fcm Notification",
  "name": "FCM Notification Settings",
