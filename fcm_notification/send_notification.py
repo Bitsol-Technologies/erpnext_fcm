@@ -5,28 +5,15 @@ import re
 import firebase_admin
 from firebase_admin import credentials, messaging
 
+frappe.utils.logger.set_log_level("DEBUG")
+logger = frappe.logger("push_notification", allow_site=True, file_count=5)
 
-def user_id(doc):
-    user_email = doc.for_user
-    user_device_id = frappe.get_all(
-        "User Device", filters={"user": user_email, "is_active": 1}, fields=["device_id"]
+def get_user_fcm_tokens(user_email):
+    user_fcm_tokens = frappe.get_all(
+        "User Device", filters={"user": user_email, "is_active": 1}, fields=["fcm_token"]
     )
-    return user_device_id
+    return user_fcm_tokens
 
-
-def send_push_to_user(email, title, message, data=None):
-    firebase_app()
-    fcm_tokens = frappe.get_all(
-        "User Device", filters={"user": email, "is_active": 1}, fields=["fcm_token"]
-    )
-    fcm_tokens = [device["fcm_token"] for device in fcm_tokens]
-    if not fcm_tokens:
-        return "No devices found or active"
-
-    notification = messaging.Notification(title=title, body=message)
-    message = messaging.MulticastMessage(notification=notification, tokens=fcm_tokens)
-    response = messaging.send_multicast(message)
-       
 
 @frappe.whitelist()
 def create_or_update_user_device(device_id, device_name, device_manufacturer, fcm_token):
@@ -45,7 +32,7 @@ def create_or_update_user_device(device_id, device_name, device_manufacturer, fc
         new_user_device = frappe.get_doc({
                 "doctype": "User Device",
                 "user": user,
-                "device_name": device_name, 
+                "device_name": device_name,
                 "device_id": device_id,
                 "device_manufacturer": device_manufacturer,
                 "fcm_token": fcm_token,
@@ -72,15 +59,12 @@ def mark_device_as_inactive():
 
 @frappe.whitelist()
 def send_notification(doc, event=None):
-    device_ids = user_id(doc)
-    for device_id in device_ids:
-        enqueue(
-            process_notification,
-            queue="default",
-            now=False,
-            device_id=device_id,
-            notification=doc,
-        )
+    enqueue(
+        process_notification,
+        queue="default",
+        now=False,
+        notification=doc,
+    )
 
 
 def convert_message(message):
@@ -95,34 +79,33 @@ def firebase_app():
     firebase_admin.initialize_app(cred)
 
 
-def process_notification(device_id, notification):
+def process_notification(notification):
     firebase_app()
-    fcm_token_list = get_user_fcm_token_list(notification.for_user)
+    fcm_token_list = get_user_fcm_tokens(notification.for_user)
     message = notification.email_content
     message = convert_message(message)
     subject = convert_message(notification.subject)
+    logger.info(f"Going to send Push to user = {notification.for_user}")
 
     data = {
-        "document_name": notification.document_name,
-        "document_type": notification.document_type,
+        "document_name": notification.document_name or '',
+        "document_type": notification.document_type or '',
         "for_user": notification.for_user,
         "from_user": notification.owner
     }
-    if notification.owner != notification.for_user:
-        name = get_doc_owner_name(notification.owner)
-        message = f"{name} has {message[9:]}"
     if fcm_token_list:
         send_push_notification(fcm_token_list, subject, message, data)
 
+def send_push_notification(tokens, title, body, data=None):
+    message = messaging.MulticastMessage(
+        notification=messaging.Notification(
+            title=title,
+            body=body
+        ),
+        data=data,
+        tokens=tokens
+    )
 
-def get_user_fcm_token_list(user):
-    return frappe.db.get_list("User Device", {"user": user}, ["fcm_token"])
-
-def get_doc_owner_name(email):
-    return frappe.db.get_value("Employee", {"user_id": email}, ["employee_name"])
-
-def send_push_notification(fcm_token_list, title, body, data=None):
-    for fcm_token in fcm_token_list:
-        notification = messaging.Notification(title=title, body=body)
-        message = messaging.Message(notification=notification, token=fcm_token["fcm_token"], data=data)
-        messaging.send(message)
+    # Send the message
+    response = messaging.send_each_for_multicast(message)
+    logger.info(f"Push Notification sent Successfully, res = {response}")
