@@ -1,18 +1,30 @@
 import frappe
 import json
-from frappe import enqueue
 import re
+import html
+from frappe import enqueue
 import firebase_admin
 from firebase_admin import credentials, messaging
 
-frappe.utils.logger.set_log_level("DEBUG")
 logger = frappe.logger("push_notification", allow_site=True, file_count=5)
+logger.setLevel("WARNING")
+
 
 def get_user_fcm_tokens(user_email):
     user_fcm_tokens = frappe.get_all(
         "User Device", filters={"user": user_email, "is_active": 1}, fields=["fcm_token"]
     )
+    user_fcm_tokens = [f.get('fcm_token') for f in user_fcm_tokens if f]
+    logger.warning(f"FCM tokens = {user_fcm_tokens}")
     return user_fcm_tokens
+
+
+def send_push_to_user(email, title, message, data=None):
+    firebase_app()
+    fcm_token_list = get_user_fcm_tokens(email)
+    if not fcm_token_list:
+        return "No devices found or active"
+    send_push_notification(fcm_token_list, title, message, data)
 
 
 @frappe.whitelist()
@@ -68,10 +80,17 @@ def send_notification(doc, event=None):
 
 
 def convert_message(message):
-    CLEANR = re.compile("<.*?>")
-    cleanmessage = re.sub(CLEANR, "", message)
-    # cleantitle = re.sub(CLEANR, "",title)
-    return cleanmessage
+    # Replace <p> and </p> with newline characters
+    html_text = re.sub(r'</?p>', '\n', message)
+    # Remove all other HTML tags
+    html_text = re.sub(r'<.*?>', '', html_text)
+    # Convert &nbsp; and other HTML entities to plain text
+    plain_text = html.unescape(html_text)
+    # Strip extra leading/trailing newlines and spaces
+    plain_text = plain_text.strip()
+    # Remove consecutive newlines and replace with a single newline
+    return re.sub(r'\n+', '\n', plain_text)
+
 
 def firebase_app():
     server_key = frappe.db.get_single_value("FCM Notification Settings", "server_key")
@@ -81,11 +100,10 @@ def firebase_app():
 
 def process_notification(notification):
     firebase_app()
-    fcm_token_list = get_user_fcm_tokens(notification.for_user)
-    message = notification.email_content
+    message = notification.push_text or notification.email_content
     message = convert_message(message)
     subject = convert_message(notification.subject)
-    logger.info(f"Going to send Push to user = {notification.for_user}")
+    logger.warning(f"Going to send Push to user = {notification.for_user}")
 
     data = {
         "document_name": notification.document_name or '',
@@ -93,8 +111,10 @@ def process_notification(notification):
         "for_user": notification.for_user,
         "from_user": notification.owner
     }
+    fcm_token_list = get_user_fcm_tokens(notification.for_user)
     if fcm_token_list:
         send_push_notification(fcm_token_list, subject, message, data)
+
 
 def send_push_notification(tokens, title, body, data=None):
     message = messaging.MulticastMessage(
@@ -107,5 +127,6 @@ def send_push_notification(tokens, title, body, data=None):
     )
 
     # Send the message
-    response = messaging.send_each_for_multicast(message)
-    logger.info(f"Push Notification sent Successfully, res = {response}")
+    res = messaging.send_each_for_multicast(message)
+    logger.warning(f"Push sent Successfully, success_count = {res.success_count}, failure_count = {res.failure_count}")
+    logger.info(f"Responses = {res.responses}")
