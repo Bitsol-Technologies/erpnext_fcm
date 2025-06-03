@@ -93,9 +93,22 @@ def convert_message(message):
 
 
 def firebase_app():
-	server_key = frappe.db.get_single_value("FCM Notification Settings", "server_key")
-	cred = credentials.Certificate(json.loads(server_key))
-	firebase_admin.initialize_app(cred)
+	try:
+		# If it exists, this call will succeed and we do nothing.
+		firebase_admin.get_app()
+	except ValueError:
+		try:
+			server_key = frappe.db.get_single_value("FCM Notification Settings", "server_key")
+			if not server_key:
+				frappe.log_error(message="FCM Server key not found in 'FCM Notification Settings'. Firebase not initialized.", title="FCM Server Key Not Found")
+				return 
+
+			# server_key is expected to be a JSON string of the certificate
+			cred_json = json.loads(server_key) 
+			cred = credentials.Certificate(cred_json)
+			firebase_admin.initialize_app(cred) # Initialize the default app
+		except Exception as e_init:
+			frappe.log_error(message=f"Error during Firebase app initialization attempt in fcm_notification: {e_init}", title="FCM Server Key Not Found")
 
 
 def process_notification(notification):
